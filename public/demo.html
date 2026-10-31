@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2f6bff" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>实时语音 Agent · 演示</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="wrap">
+    <div class="topbar">
+      <a class="back" href="landing.html">← 产品介绍</a>
+      <span class="topmeta">实时语音 Agent · Demo</span>
+      <span class="tb-actions">
+        <button id="installBtn" class="icon-btn" title="安装到桌面">⬇ 安装</button>
+        <button id="metricsToggle" class="icon-btn" title="评测看板">📊 评测</button>
+        <button id="themeToggle" class="icon-btn" title="切换明暗主题">🌙 暗色</button>
+      </span>
+    </div>
+
+    <header class="hero">
+      <div class="badge">AI 产品作品集 · 方向③</div>
+      <h1>实时语音 Agent 演示</h1>
+      <p class="sub">用语音或文字对话的 AI Agent。国内大模型可直连，无需代理。点右上角「⚙ 设置」可调温度、音色、工具与知识库；「📊 评测」看实时指标。</p>
+    </header>
+
+    <section class="panel">
+      <div class="row">
+        <div class="group">
+          <span class="label">运行模式</span>
+          <div class="seg" id="modeSeg">
+            <button class="seg-btn active" data-mode="sim">模拟模式（免密钥）</button>
+            <button class="seg-btn" data-mode="domestic">国内大模型</button>
+            <button class="seg-btn" data-mode="openai">OpenAI 实时</button>
+            <button class="seg-btn" data-mode="minimax">MiniMax 真时</button>
+          </div>
+        </div>
+        <div class="group">
+          <span class="label">场景</span>
+          <div class="seg" id="sceneSeg">
+            <button class="seg-btn active" data-scene="interview">模拟面试官</button>
+            <button class="seg-btn" data-scene="language">外语陪练</button>
+            <button class="seg-btn" data-scene="free">自由对话</button>
+          </div>
+        </div>
+      </div>
+
+      <details class="settings">
+        <summary>⚙ 设置</summary>
+        <div class="set-body">
+          <div class="set-row">
+            <label>国内大模型服务商（决定 Base URL 与模型；切换后需重填对应 Key）</label>
+            <select id="setProvider" class="set-select">
+              <option value="deepseek">DeepSeek（默认）</option>
+              <option value="zhipu">智谱 GLM</option>
+              <option value="qwen">通义千问（阿里云百炼）</option>
+              <option value="doubao">豆包（火山方舟）</option>
+              <option value="custom">自定义（自填 Base URL / 模型）</option>
+            </select>
+            <div id="providerExtra" class="set-provider-extra" hidden>
+              <input id="setProvBase" class="tinput" placeholder="Base URL，如 https://your-host/v1" />
+              <input id="setProvModel" class="tinput" placeholder="模型名 / 接入点 ID" />
+            </div>
+            <p class="set-hint" id="providerHint">切换服务商后，请在模式栏点「国内大模型」重新填入该服务商的 Key。</p>
+          </div>
+          <div class="set-row">
+            <label>温度（创造力）</label>
+            <div class="set-inline">
+              <input id="setTemp" type="range" min="0" max="1" step="0.1" value="0.8" />
+              <span id="setTempVal" class="set-val">0.8</span>
+            </div>
+          </div>
+          <div class="set-row">
+            <label>语音播报音色（点卡片选用，点「试听」预览）</label>
+            <div class="vg-filter"><label class="chk"><input type="checkbox" id="zhOnly" checked /> 仅显示中文</label></div>
+            <div id="voiceGallery" class="voice-gallery"><span class="voice-empty">正在加载可用音色…</span></div>
+          </div>
+          <div class="set-row">
+            <label class="set-check"><input id="setTools" type="checkbox" /> 启用工具调用（计算器 / 时间 / 天气 / 搜索）</label>
+          </div>
+          <div class="set-row">
+            <label class="set-check"><input id="setMulti" type="checkbox" /> 多智能体协作（仅「国内大模型」：模拟面试小组 / 专家团轮流发言）</label>
+          </div>
+          <div class="set-row">
+            <label class="set-check"><input id="setBilingual" type="checkbox" /> 双语字幕（外语陪练时，AI 英文回复对照中文翻译，需国内大模型密钥）</label>
+          </div>
+          <div class="set-row set-rag">
+            <label class="set-check"><input id="setRag" type="checkbox" /> 启用知识库检索（RAG）</label>
+            <textarea id="setKnowledge" class="set-text" placeholder="粘贴一段资料，Agent 将优先依据它回答（例如产品说明、简历、知识点）。开启上方开关后生效。"></textarea>
+          </div>
+        </div>
+      </details>
+
+      <div class="stage">
+        <button id="micBtn" class="mic" aria-label="开始/结束">
+          <span class="dot"></span>
+          <span id="micLabel">点击开始</span>
+        </button>
+        <div class="barge-wrap" id="bargeWrap">
+          <button id="bargeBtn" class="barge-btn">⏸ 打断（让 AI 停止说话）</button>
+        </div>
+        <div class="status" id="status">就绪</div>
+      </div>
+
+      <div class="textrow">
+        <input id="textInput" class="tinput" placeholder="麦克风不可用？直接输入文字也能对话（回车发送）" />
+        <button id="sendBtn" class="ghost">发送</button>
+      </div>
+
+      <div class="metrics" id="metrics">
+        <div class="metric"><span class="m-label">首包延迟</span><span class="m-val" id="mLatency">—</span></div>
+        <div class="metric"><span class="m-label">对话时长</span><span class="m-val" id="mTime">00:00</span></div>
+        <div class="metric"><span class="m-label">当前模式</span><span class="m-val" id="mMode">模拟</span></div>
+      </div>
+
+      <div class="metrics-panel" id="metricsPanel">
+        <div class="metrics-grid">
+          <div class="mg"><b id="mgRounds">0</b><span>对话轮次</span></div>
+          <div class="mg"><b id="mgUser">0</b><span>用户输入轮</span></div>
+          <div class="mg"><b id="mgBot">0</b><span>AI 回复轮</span></div>
+          <div class="mg"><b id="mgLat">—</b><span>平均首包延迟</span></div>
+          <div class="mg"><b id="mgTok">0</b><span>估算 Token</span></div>
+          <div class="mg"><b id="mgCost">¥0</b><span>估算成本(DeepSeek)</span></div>
+        </div>
+        <div class="metrics-actions">
+          <button id="metricsExport" class="ghost">⬇ 导出评测报告</button>
+          <button id="metricsReset" class="ghost">↺ 重置指标</button>
+        </div>
+        <p class="set-hint">指标为本会话实时统计：Token 按字符数估算（中文≈1.5 字/token），成本按 DeepSeek deepseek-chat 定价（输入¥1/百万、输出¥2/百万）粗略估算，仅作演示。</p>
+      </div>
+    </section>
+
+    <section class="panel transcript-panel">
+      <div class="t-head">
+        <span>对话记录</span>
+        <span>
+          <button id="exportBtn" class="ghost">⬇ 导出对话</button>
+          <button id="clearBtn" class="ghost">清空</button>
+        </span>
+      </div>
+      <div id="transcript" class="transcript"></div>
+    </section>
+
+    <footer class="foot">
+      <p><b>模拟模式</b>：浏览器内置语音识别/合成，无需任何密钥，可立即演示完整语音闭环。</p>
+      <p><b>国内大模型</b>：LLM 走国内兼容端点（默认 DeepSeek，可在「⚙ 设置 → 国内大模型服务商」切换智谱 / 通义 / 豆包 / 自定义），无需代理。工具、多智能体、双语字幕、知识库在此模式下可用。</p>
+      <p><b>OpenAI 实时 / MiniMax 真时</b>：真·双向流式语音，需对应密钥且网络可达。</p>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

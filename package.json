@@ -1,0 +1,10 @@
+{
+  "name": "realtime-voice-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "实时语音 AI Agent 演示：模拟模式（无需密钥）+ OpenAI Realtime 真时模型模式",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

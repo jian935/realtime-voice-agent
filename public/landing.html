@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2f6bff" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>实时语音 Agent · 产品介绍</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="landing">
+  <main class="l-wrap">
+    <div class="topbar">
+      <span class="topmeta">实时语音 Agent</span>
+      <button id="themeToggle" class="icon-btn" title="切换明暗主题">🌙 暗色</button>
+    </div>
+    <header class="l-hero">
+      <div class="badge">AI 产品作品集 · 方向③</div>
+      <h1>实时语音 Agent</h1>
+      <p class="l-sub">一个可运行的「说话式」AI 助手 —— 验证语音交互在面试陪练 / 口语练习场景里的产品价值。三种对话场景，三种后端，零门槛可演示。</p>
+      <div class="l-cta">
+        <a class="btn-primary" href="demo.html">▶ 打开实时演示</a>
+        <a class="btn-ghost" href="demo.html#features">查看能力</a>
+      </div>
+    </header>
+
+    <section class="l-problem">
+      <h2>为什么做"语音"而不是再加一个文字 Agent？</h2>
+      <p>我调研的 15 个 AI 产品实习岗里，只有 1 个明确招「实时音视频 / 语音大模型」方向，但它是 2026 年明显上升的赛道，且<b>极少候选人能做</b>。对作品集而言，<b>差异化 &gt; 拥挤的通用 Agent</b>。</p>
+      <div class="l-stats">
+        <div><b>15</b><span>目标岗位样本</span></div>
+        <div><b>1</b><span>明确招语音方向</span></div>
+        <div><b>3</b><span>内置对话场景</span></div>
+        <div><b>3</b><span>可选模型后端</span></div>
+      </div>
+    </section>
+
+    <section class="l-scenes" id="features">
+      <h2>三种场景（可切换）</h2>
+      <div class="l-cards">
+        <div class="l-card">
+          <div class="l-emoji">🎤</div>
+          <h3>模拟面试官</h3>
+          <p>严谨但友善的产品经理面试官，短追问你的项目经历、产品判断与数据分析能力。练习面试节奏。</p>
+        </div>
+        <div class="l-card">
+          <div class="l-emoji">🌍</div>
+          <h3>外语陪练</h3>
+          <p>全英文短文对话，温和纠正语法并反问，帮你练口语反应。可切换中英语音播报。</p>
+        </div>
+        <div class="l-card">
+          <div class="l-emoji">💬</div>
+          <h3>自由对话</h3>
+          <p>通用语音助手，自然简洁地聊天并给出有用信息，适合随手体验语音交互。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="l-caps">
+      <h2>能力亮点（写给技术面试官看）</h2>
+      <ul>
+        <li><b>工具调用可视化</b>：Agent 能调用计算器 / 时间 / 天气 / 搜索，界面实时展示"它调了什么"，体现对 Function Calling / MCP 的理解。</li>
+        <li><b>RAG 知识库</b>：粘贴一段资料，Agent 基于它回答（本地 TF-IDF 检索，无需外部向量库）。</li>
+        <li><b>真时双向语音</b>：国内 MiniMax Realtime 适配，无需翻墙即可真·实时语音（需密钥）。</li>
+        <li><b>密钥安全</b>：所有模型密钥只在服务端，浏览器永远拿不到，通过 ephemeral token / 代理转发。</li>
+        <li><b>可观测</b>：实时显示首包延迟与对话时长，把语音 Agent 最关键的延迟指标显性化。</li>
+      </ul>
+    </section>
+
+    <section class="l-tech">
+      <h2>产品取舍（PM 视角）</h2>
+      <div class="l-tech-grid">
+        <div><b>可演示性优先</b><p>真时模型要密钥、要网络、要麦克风。所以做了"模拟模式"用浏览器能力零成本复现完整 UX，保证任何时候都能演示。</p></div>
+        <div><b>国内直连</b><p>默认对接 DeepSeek 兼容端点，普通大陆网络即可跑，不依赖代理。</p></div>
+        <div><b>不止文档</b><p>项目可运行、可开源、有真实交互，拒绝"只写 PRD"的同质化。</p></div>
+      </div>
+    </section>
+
+    <footer class="l-foot">
+      <p>开源地址：<a href="https://github.com/jian935" target="_blank" rel="noopener">github.com/jian935</a>（仓库整理中）</p>
+      <p class="muted">本页为作品集 Demo，模型回答由 AI 生成，仅供体验。</p>
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
