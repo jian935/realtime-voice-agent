@@ -250,7 +250,7 @@ function showBanner(html, type = 'warn') {
 }
 function hideBanner() { const b = document.getElementById('banner'); if (b) b.classList.add('hidden'); }
 
-// 密钥输入定义：点击未配置的模式时，弹出对应密钥框（Key 只发往本地服务，不会外泄第三方）
+// 密钥输入定义：点击未配置的模式时，弹出对应密钥框（Key 只发往服务端做代理，不落盘、不外泄第三方）
 const KEY_FIELDS = {
   domestic: [{ id: 'km_domestic', label: 'DeepSeek API Key（sk-...）', type: 'password', store: 'domestic' }],
   openai:   [{ id: 'km_openai',   label: 'OpenAI API Key（sk-...）',   type: 'password', store: 'openai' }],
@@ -260,7 +260,7 @@ const KEY_FIELDS = {
   ]
 };
 const KEY_TITLE = {
-  domestic: '点击即可填入 DeepSeek API Key（仅发往本地服务，不会外泄第三方）',
+  domestic: '点击即可填入 DeepSeek API Key（仅发往本站服务端做代理，不落盘、不外泄第三方）',
   openai:   '点击即可填入 OpenAI API Key',
   minimax:  '点击即可填入 MiniMax Group ID 与 API Key'
 };
@@ -349,7 +349,7 @@ function showKeyModal(mode) {
           '<button id="kmCancel" class="ghost">取消</button>' +
           '<button id="kmSave" class="km-save">保存并使用</button>' +
         '</div>' +
-        '<p class="km-note">密钥仅保存在本浏览器会话（sessionStorage），且只发往本地服务做代理——不会直接发送给第三方；关闭标签页即清除。若想长期免填，可在启动服务前用环境变量设置（见 README）。</p>' +
+        '<p class="km-note">密钥仅保存在本浏览器会话（sessionStorage），且只发往本站服务端做代理（不保存到磁盘）——不会直接发送给第三方；关闭标签页即清除。若想长期免填，可在启动服务前用环境变量设置（见 README）。</p>' +
       '</div>';
     document.body.appendChild(ov);
     ov.addEventListener('click', (e) => { if (e.target === ov) closeKeyModal(); });
@@ -364,7 +364,7 @@ function showKeyModal(mode) {
   };
   const descs = {
     domestic: '当前服务商：' + pv.label + '。填入后仅本次会话可用，刷新页面需重新填入（或改用环境变量持久化）。换服务商请到「⚙ 设置 → 国内大模型服务商」切换，并重填对应 Key。',
-    openai: 'OpenAI Realtime 真时双向语音。填入的 Key 仅用于本地服务向 OpenAI 申请临时令牌，不会直连暴露。',
+    openai: 'OpenAI Realtime 真时双向语音。填入的 Key 仅用于本站服务端向 OpenAI 申请临时令牌，不会直连暴露。',
     minimax: 'MiniMax 真时双向语音，需要 Group ID 与 API Key 两项。'
   };
   document.getElementById('kmTitle').textContent = titles[mode] || '填入密钥';
@@ -413,7 +413,7 @@ async function initConfig() {
     if (!r.ok) throw new Error('status ' + r.status);
     cfgCache = await r.json();
   } catch (_) {
-    showBanner('无法连接本地服务（<code>/api/config</code> 请求失败）。请确认已运行 <code>npm start</code>，并用 <code>http://localhost:3000</code> 打开本页，<b>不要直接双击 HTML 文件</b>。模拟模式可正常使用。', 'warn');
+    showBanner('无法连接服务端（<code>/api/config</code> 请求失败）。线上版本请稍后重试；本地运行请确认已 <code>npm start</code> 并用 <code>http://localhost:3000</code> 打开，<b>不要直接双击 HTML 文件</b>。模拟模式可正常使用。', 'warn');
   }
   refreshModeButtons();
 }
@@ -553,7 +553,7 @@ let domBuf = '';
 async function domesticRespond(text) {
   if (!isModeConfigured('domestic')) {
     addMsg('user', text);
-    addMsg('bot', '「国内大模型」当前不可用：未填入密钥且本地服务也未配置。请在上方模式栏点击「国内大模型」填入 DeepSeek API Key，或先运行 npm start 并配置 DOMESTIC_LLM_KEY，也可切到「模拟」模式。');
+    addMsg('bot', '「国内大模型」当前不可用：未填入密钥且服务端也未配置。请在上方模式栏点击「国内大模型」填入 DeepSeek API Key；本地运行也可配置 DOMESTIC_LLM_KEY。也可切到「模拟」模式。');
     return;
   }
   trackUserTurn(text);
@@ -623,7 +623,7 @@ async function domesticRespond(text) {
     removeMsg(think);
     const net = e && /failed to fetch|networkerror|load failed|network/i.test(e.message || '');
     addMsg('bot', net
-      ? '请求失败：无法连接本地服务。请确认已运行 `npm start` 并用 http://localhost:3000 打开（不要直接双击 HTML 文件）。'
+      ? '请求失败：无法连接服务端。线上版本请稍后重试；本地运行请确认 npm start 并用 http://localhost:3000 打开（不要直接双击 HTML 文件）。'
       : ('请求失败：' + (e.message || e)));
   }
 }
@@ -636,7 +636,7 @@ async function startRealtime() {
   setStatus('正在申请临时密钥…');
   let data;
   try { const r = await fetch('/api/token', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ apiKey: enteredKeys.openai || undefined }) }); data = await r.json(); }
-  catch (e) { setStatus('无法连接本地服务，请先 npm start'); return; }
+  catch (e) { setStatus('无法连接服务端，请稍后重试（本地运行请先 npm start）'); return; }
   if (data.error) { setStatus(data.error); return; }
   const key = data.value || data.client_secret?.value;
   if (!key) { setStatus('服务端未返回可用 token，请检查 OPENAI_API_KEY'); return; }
@@ -752,7 +752,7 @@ async function startMiniMax() {
   setStatus('正在申请 MiniMax token…');
   let data;
   try { const r = await fetch('/api/minimax-token', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ groupId: enteredKeys.minimaxGid || undefined, apiKey: enteredKeys.minimaxKey || undefined }) }); data = await r.json(); }
-  catch (e) { setStatus('无法连接本地服务，请先 npm start'); return; }
+  catch (e) { setStatus('无法连接服务端，请稍后重试（本地运行请先 npm start）'); return; }
   if (data.error) { setStatus('MiniMax 不可用：' + data.error); return; }
 
   const url = `wss://api.minimax.chat/v1/realtime?authorization=${encodeURIComponent(data.token)}`;
