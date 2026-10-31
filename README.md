@@ -3,6 +3,7 @@
 > AI 产品经理作品集项目（方向③）—— 验证"实时语音 / 音视频交互"作为产品能力的可行性。
 > 对应实习岗位关键词：**实时音视频交互、语音大模型、多模态 Agent、Function Calling / MCP、RAG、模型评测**（岗位 11 等）。
 > 源码：https://github.com/jian935/realtime-voice-agent ｜ 简历素材与链接见 [`简历素材-项目链接与要点.md`](简历素材-项目链接与要点.md)
+> 在线演示（静态版）：https://jian935.github.io/realtime-voice-agent/ —— 模拟模式 + 国内大模型（浏览器直连 DeepSeek）；OpenAI / MiniMax 实时需本地 `npm start`。
 
 ---
 
@@ -70,6 +71,18 @@ export MINIMAX_GROUP_ID=你的组ID
 export MINIMAX_API_KEY=你的密钥
 npm start
 ```
+
+### 静态版（GitHub Pages）
+
+线上静态版：https://jian935.github.io/realtime-voice-agent/ （从 `main` 的 `/docs` 发布）。
+`docs/` 是 `public/` 的副本；改完 `public/` 后要同步一次再推送：
+
+```bash
+rm -rf docs && mkdir docs && cp -r public/* docs/ && cp public/landing.html docs/index.html
+git add -A && git commit -m "sync static build" && git push
+```
+
+> 静态版没有 Node 服务端：模拟模式照常；国内大模型改为**浏览器直连**（DeepSeek 支持 CORS，填自己的 Key）；OpenAI / MiniMax 实时需要本地 `npm start`。
 
 ### 切换国内大模型厂商
 默认对接 **DeepSeek**（`api.deepseek.com`，OpenAI 兼容）。**在页面上即可切换**：打开演示页 →「⚙ 设置」→「国内大模型服务商」下拉，选 DeepSeek / 智谱 GLM / 通义千问 / 豆包（火山方舟）/ 自定义。切换后到模式栏点「国内大模型」重填该服务商的 Key 即可（Base URL 与模型名由服务端预设决定；豆包填接入点 ID `ep-...`；「自定义」可自填 Base URL 与模型名）。
