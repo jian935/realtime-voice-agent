@@ -53,11 +53,11 @@ try { settings.customModel = localStorage.getItem('va_provider_model') || ''; } 
 
 // 国内大模型服务商预设（与 server.js 的 PROVIDER_PRESETS 保持一致）
 const PROVIDERS = {
-  deepseek: { label: 'DeepSeek（默认）', keyLabel: 'DeepSeek API Key' },
-  zhipu:    { label: '智谱 GLM', keyLabel: '智谱 API Key' },
-  qwen:     { label: '通义千问（阿里云百炼）', keyLabel: '百炼 API Key' },
-  doubao:   { label: '豆包（火山方舟）', keyLabel: '方舟 API Key' },
-  custom:   { label: '自定义（自填 Base URL）', keyLabel: 'API Key' }
+  deepseek: { label: 'DeepSeek（默认）', keyLabel: 'DeepSeek API Key', base: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+  zhipu:    { label: '智谱 GLM', keyLabel: '智谱 API Key', base: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash' },
+  qwen:     { label: '通义千问（阿里云百炼）', keyLabel: '百炼 API Key', base: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
+  doubao:   { label: '豆包（火山方舟）', keyLabel: '方舟 API Key', base: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-pro-32k' },
+  custom:   { label: '自定义（自填 Base URL）', keyLabel: 'API Key', base: '', model: '' }
 };
 function currentProvider() { return PROVIDERS[settings.provider] || PROVIDERS.deepseek; }
 // 发给服务端的路由字段：provider 决定 Base/模型；自定义与豆包额外带 base/model
@@ -75,6 +75,8 @@ let mode = 'sim';
 let scenario = 'interview';
 let running = false;
 let cfgCache = null;
+// 静态托管（如 GitHub Pages）没有 /api：此时国内大模型改为浏览器直连（DeepSeek 支持 CORS）
+let staticMode = false;
 
 const MODE_LABEL = { sim: '模拟', domestic: '国内', openai: '实时', minimax: 'MiniMax' };
 
@@ -193,8 +195,54 @@ function renderMultiAgent(textSpan, full) {
   if (!any) textSpan.textContent = full;
 }
 
+// ---------- 静态托管时的浏览器直连（DeepSeek 等 OpenAI 兼容端点支持 CORS） ----------
+function directEndpoint() {
+  const p = settings.provider || 'deepseek';
+  const pv = PROVIDERS[p] || PROVIDERS.deepseek;
+  let base = p === 'custom' ? (settings.customBase || '') : pv.base;
+  base = String(base || '').replace(/\/+$/, '');
+  const model = ((p === 'doubao' || p === 'custom') && settings.customModel) ? settings.customModel : pv.model;
+  return { base, model };
+}
+async function directCall(messages, opts = {}) {
+  const { base, model } = directEndpoint();
+  if (!base) throw new Error('未填写 Base URL');
+  if (!enteredKeys.domestic) throw new Error('未填写 API Key');
+  const r = await fetch(base + '/chat/completions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + enteredKeys.domestic },
+    body: JSON.stringify({ model, messages, temperature: opts.temperature == null ? 0.8 : opts.temperature, stream: !!opts.stream })
+  });
+  if (!r.ok) { const t = await r.text().catch(() => r.statusText); throw new Error(String(t).slice(0, 300)); }
+  return r;
+}
+async function directStream(messages, temperature, onDelta) {
+  const r = await directCall(messages, { stream: true, temperature });
+  const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = '';
+  while (true) {
+    const { done, value } = await reader.read(); if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+      if (!line.startsWith('data:')) continue;
+      const d = line.slice(5).trim(); if (!d || d === '[DONE]') continue;
+      try { const j = JSON.parse(d); const c = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content; if (c) onDelta(c); } catch (_) {}
+    }
+  }
+}
+async function translateCNDirect(text) {
+  try {
+    const r = await directCall([{ role: 'system', content: '你是专业中英翻译，把用户内容准确翻译成中文，只输出译文，不要任何解释。' }, { role: 'user', content: text }], { temperature: 0.2, stream: false });
+    const j = await r.json();
+    const c = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+    return (c || '').trim() || null;
+  } catch (_) { return null; }
+}
+
 // ---------- 双语字幕（C14） ----------
 async function translateCN(text) {
+  if (staticMode) return translateCNDirect(text);
   try {
     const r = await fetch('/api/chat', {
       method: 'POST', headers: { 'content-type': 'application/json' },
@@ -282,6 +330,8 @@ let enteredKeys = loadKeys();
 // 模式是否可用：服务端环境变量已配置，或用户在页面填过密钥
 function isModeConfigured(m) {
   if (m === 'sim') return true;
+  // 静态版：只有「国内大模型」可用（浏览器直连），实时模式需要本地服务
+  if (staticMode) return m === 'domestic' && !!enteredKeys.domestic;
   if (cfgCache) {
     if (m === 'domestic' && cfgCache.domestic) return true;
     if (m === 'openai' && cfgCache.openai) return true;
@@ -413,7 +463,13 @@ async function initConfig() {
     if (!r.ok) throw new Error('status ' + r.status);
     cfgCache = await r.json();
   } catch (_) {
-    showBanner('无法连接服务端（<code>/api/config</code> 请求失败）。线上版本请稍后重试；本地运行请确认已 <code>npm start</code> 并用 <code>http://localhost:3000</code> 打开，<b>不要直接双击 HTML 文件</b>。模拟模式可正常使用。', 'warn');
+    if (location.protocol === 'file:') {
+      showBanner('你正在直接打开 HTML 文件（<code>file://</code>）。请先运行 <code>npm start</code> 并用 <code>http://localhost:3000</code> 打开；模拟模式可用。', 'warn');
+    } else {
+      // 静态托管（GitHub Pages 等）没有 /api：国内大模型改为浏览器直连
+      staticMode = true;
+      showBanner('静态托管版：模拟模式可用；「国内大模型」由浏览器直连 DeepSeek（点模式填入自己的 Key）；OpenAI / MiniMax 实时需要本地 <code>npm start</code>。', 'warn');
+    }
   }
   refreshModeButtons();
 }
@@ -550,7 +606,50 @@ function speak(text, lang) {
 // ================= 国内大模型模式（流式 + 工具 + RAG + 多智能体 + 双语） =================
 let domBuf = '';
 
+// 静态托管版：浏览器直连（无工具调用 / RAG，它们需要本地服务）
+async function directDomesticRespond(text) {
+  if (!enteredKeys.domestic) {
+    addMsg('user', text);
+    addMsg('bot', '请先点上方「国内大模型」填入 DeepSeek API Key（静态版由浏览器直连，不经服务器）。');
+    return;
+  }
+  trackUserTurn(text);
+  addMsg('user', text);
+  const think = addMsg('bot', '思考中…', 'thinking');
+  const t0 = now();
+  let first = true, botSpan = null, full = '', firstLatency = 0;
+  try {
+    let sys = systemPrompt();
+    if (settings.tools || settings.rag) sys += '\n\n（说明：当前为静态托管版，工具调用与知识库检索需要本地服务；本次按普通对话处理。）';
+    await directStream(
+      [{ role: 'system', content: sys }, { role: 'user', content: text }],
+      settings.temp,
+      (c) => {
+        if (first) {
+          first = false;
+          firstLatency = Math.round(now() - t0);
+          const lat = $('#mLatency'); if (lat) lat.textContent = firstLatency + ' ms';
+          removeMsg(think);
+          botSpan = addMsg('bot', '');
+        }
+        full += c;
+        if (botSpan) botSpan.textContent = full;
+      }
+    );
+    removeMsg(think);
+    const botEl = botSpan ? botSpan.parentElement : addMsg('bot', full || '模型没有返回内容（请检查 Key 与账户余额）').parentElement;
+    if (settings.multi && botSpan) renderMultiAgent(botSpan, full);
+    trackBotTurn(full, firstLatency);
+    speak(full, scenario === 'language' ? 'en-US' : 'zh-CN');
+    appendBilingual(botEl, full);
+  } catch (e) {
+    removeMsg(think);
+    addMsg('bot', '直连失败：' + (e.message || e) + '。静态版只验证了 DeepSeek 的跨域直连；其他服务商可能被浏览器 CORS 拦截，建议本地 npm start 使用。');
+  }
+}
+
 async function domesticRespond(text) {
+  if (staticMode) { await directDomesticRespond(text); return; }
   if (!isModeConfigured('domestic')) {
     addMsg('user', text);
     addMsg('bot', '「国内大模型」当前不可用：未填入密钥且服务端也未配置。请在上方模式栏点击「国内大模型」填入 DeepSeek API Key；本地运行也可配置 DOMESTIC_LLM_KEY。也可切到「模拟」模式。');
@@ -961,6 +1060,10 @@ function initDemo() {
     if (!b) return;
     const m = b.dataset.mode;
     if (m === 'sim') { selectMode('sim'); return; }
+    if (staticMode && m !== 'domestic') {
+      showBanner('静态托管版不支持「' + MODE_LABEL[m] + '」：实时双向语音需要本地服务（<code>npm start</code>）。请用「模拟模式」或「国内大模型」（浏览器直连 DeepSeek）。', 'warn');
+      return;
+    }
     if (isModeConfigured(m)) { selectMode(m); return; }
     if (location.protocol === 'file:') {
       showBanner('你正在直接打开 HTML 文件（<code>file://</code>）。远程模式需要本地服务支撑，请先运行 <code>npm start</code>，再用 <code>http://localhost:3000</code> 打开本页。模拟模式仍可使用。', 'warn');
